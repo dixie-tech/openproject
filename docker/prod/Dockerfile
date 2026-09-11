@@ -1,3 +1,4 @@
+# syntax=docker/dockerfile:1
 ARG RUBY_VERSION="4.0.6"
 ARG DEBIAN_BASE="trixie"
 # Add SBOM scan context for intermediate steps
@@ -84,6 +85,14 @@ COPY lib ./lib
 # it again here copied its *contents* into vendor/, leaving a stale second gem tree.
 COPY ./docker/prod/setup/bundle-install.sh ./vendor/
 RUN bash vendor/bundle-install.sh && rm vendor/bundle-install.sh
+
+# npm install needs frontend/.npmrc (legacy-peer-deps) to resolve, and frontend/patches
+# for the patch-package postinstall.
+COPY .npmrc package.json package-lock.json ./
+COPY frontend/.npmrc frontend/package.json frontend/package-lock.json ./frontend/
+COPY frontend/patches ./frontend/patches
+RUN --mount=type=cache,target=/root/.npm,sharing=locked \
+  JOBS=8 npm install
 
 COPY . .
 
